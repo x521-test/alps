@@ -40,7 +40,7 @@ function clone {
 	echo "${BLD}#       CLONING TOOLCHAIN          #"
 	echo "${YLW}####################################"
 	sleep 2
-	git clone --depth=1 --no-single-branch https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9.git
+	git clone https://github.com/raymondmiracle/Toolchain toolchain
 	echo "${YLW}####################################"
 	echo "${RST}#    CLONING TOOLCHAIN DONE        #"
         echo "${YLW}####################################"
@@ -83,7 +83,7 @@ function build_kernel {
 	echo "${PURP}#######################"
 	BUILD_START=$(date +"%s")
 	make -j$(nproc --all) O=out \
-		CROSS_COMPILE=$KERNEL_DIR/aarch64-linux-android-4.9/bin/aarch64-linux-android- 2>&1 | tee logcat.txt
+		CROSS_COMPILE=$KERNEL_DIR/toolchain/bin/aarch64-linux-android- 2>&1 | tee logcat.txt
 	BUILD_END=$(date +"%s")
 	BUILD_TIME=$(date +"%Y%m%d-%T")
 	DIFF=$(($BUILD_END - $BUILD_START))	
