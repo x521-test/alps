@@ -71,7 +71,6 @@
 #define PK_DBG_FUNC(fmt, arg...)    pr_debug(PFX "%s: " fmt, __func__ , ##arg)
 
 /*#define DEBUG_KD_STROBE*/
-
 #ifdef DEBUG_KD_STROBE
 #define logI PK_DBG_FUNC
 #else
@@ -85,6 +84,110 @@ static FLASHLIGHT_FUNCTION_STRUCT
 	*g_pFlashInitFunc[e_Max_Sensor_Dev_Num][e_Max_Strobe_Num_Per_Dev][e_Max_Part_Num_Per_Dev];
 static int gLowBatDuty[e_Max_Sensor_Dev_Num][e_Max_Strobe_Num_Per_Dev];
 static int g_strobePartId[e_Max_Sensor_Dev_Num][e_Max_Strobe_Num_Per_Dev];
+static DEFINE_MUTEX(g_mutex);
+/* ============================== */
+/* Pinctrl */
+/* ============================== */
+static struct pinctrl *flashlight_pinctrl;
+static struct pinctrl_state *flashlight_hwen_high;
+static struct pinctrl_state *flashlight_hwen_low;
+static struct pinctrl_state *flashlight_torch_high;
+static struct pinctrl_state *flashlight_torch_low;
+static struct pinctrl_state *flashlight_flash_high;
+static struct pinctrl_state *flashlight_flash_low;
+
+int flashlight_gpio_init(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	flashlight_pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(flashlight_pinctrl)) {
+		logI("Cannot find flashlight pinctrl!");
+		ret = PTR_ERR(flashlight_pinctrl);
+	}
+	/* Flashlight HWEN pin initialization */
+	flashlight_hwen_high = pinctrl_lookup_state(flashlight_pinctrl, "hwen_high");
+	if (IS_ERR(flashlight_hwen_high)) {
+		ret = PTR_ERR(flashlight_hwen_high);
+		logI("%s : init err, flashlight_hwen_high\n", __func__);
+	}
+
+	flashlight_hwen_low = pinctrl_lookup_state(flashlight_pinctrl, "hwen_low");
+	if (IS_ERR(flashlight_hwen_low)) {
+		ret = PTR_ERR(flashlight_hwen_low);
+		logI("%s : init err, flashlight_hwen_low\n", __func__);
+	}
+
+	/* Flashlight TORCH pin initialization */
+	flashlight_torch_high = pinctrl_lookup_state(flashlight_pinctrl, "torch_high");
+	if (IS_ERR(flashlight_torch_high)) {
+		ret = PTR_ERR(flashlight_torch_high);
+		logI("%s : init err, flashlight_torch_high\n", __func__);
+	}
+
+	flashlight_torch_low = pinctrl_lookup_state(flashlight_pinctrl, "torch_low");
+	if (IS_ERR(flashlight_torch_low)) {
+		ret = PTR_ERR(flashlight_torch_low);
+		logI("%s : init err, flashlight_torch_low\n", __func__);
+	}
+
+	/* Flashlight FLASH pin initialization */
+	flashlight_flash_high = pinctrl_lookup_state(flashlight_pinctrl, "flash_high");
+	if (IS_ERR(flashlight_flash_high)) {
+		ret = PTR_ERR(flashlight_flash_high);
+		logI("%s : init err, flashlight_flash_high\n", __func__);
+	}
+
+	flashlight_flash_low = pinctrl_lookup_state(flashlight_pinctrl, "flash_low");
+	if (IS_ERR(flashlight_flash_low)) {
+		ret = PTR_ERR(flashlight_flash_low);
+		logI("%s : init err, flashlight_flash_low\n", __func__);
+	}
+
+	return ret;
+}
+
+int flashlight_gpio_set(int pin , int state)
+{
+	int ret = 0;
+
+	if (IS_ERR(flashlight_pinctrl)) {
+		logI("%s : set err, flashlight_pinctrl not available\n", __func__);
+		return -1;
+	}
+
+	switch (pin) {
+	case FLASHLIGHT_PIN_HWEN:
+		if (state == STATE_LOW && !IS_ERR(flashlight_hwen_low))
+			pinctrl_select_state(flashlight_pinctrl, flashlight_hwen_low);
+		else if (state == STATE_HIGH && !IS_ERR(flashlight_hwen_high))
+			pinctrl_select_state(flashlight_pinctrl, flashlight_hwen_high);
+		else
+			logI("%s : set err, pin(%d) state(%d)\n", __func__, pin, state);
+		break;
+	case FLASHLIGHT_PIN_TORCH:
+		if (state == STATE_LOW && !IS_ERR(flashlight_torch_low))
+			pinctrl_select_state(flashlight_pinctrl, flashlight_torch_low);
+		else if (state == STATE_HIGH && !IS_ERR(flashlight_torch_high))
+			pinctrl_select_state(flashlight_pinctrl, flashlight_torch_high);
+		else
+			logI("%s : set err, pin(%d) state(%d)\n", __func__, pin, state);
+		break;
+	case FLASHLIGHT_PIN_FLASH:
+		if (state == STATE_LOW && !IS_ERR(flashlight_flash_low))
+			pinctrl_select_state(flashlight_pinctrl, flashlight_flash_low);
+		else if (state == STATE_HIGH && !IS_ERR(flashlight_flash_high))
+			pinctrl_select_state(flashlight_pinctrl, flashlight_flash_high);
+		else
+			logI("%s : set err, pin(%d) state(%d)\n", __func__, pin, state);
+		break;
+	default:
+			logI("%s : set err, pin(%d) state(%d)\n", __func__, pin, state);
+		break;
+	}
+	logI("%s : pin(%d) state(%d)\n", __func__, pin, state);
+	return ret;
+}
 
 /* ============================== */
 /* functions */
@@ -338,11 +441,7 @@ static void Lbat_protection_powerlimit_flash(LOW_BATTERY_LEVEL level)
 	if (level == LOW_BATTERY_LEVEL_0) {
 		gLowPowerVbat = LOW_BATTERY_LEVEL_0;
 	} else if (level == LOW_BATTERY_LEVEL_1) {
-/* Vanzo:zhangqingzhan on: Mon, 10 Oct 2016 11:55:27 +0800
- *level not close flash
 		closeFlash();
- */
-// End of Vanzo: zhangqingzhan
 		gLowPowerVbat = LOW_BATTERY_LEVEL_1;
 
 	} else if (level == LOW_BATTERY_LEVEL_2) {
@@ -433,12 +532,7 @@ static long flashlight_ioctl_core(struct file *file, unsigned int cmd, unsigned 
 			int isLow = 0;
 
 			if (gLowPowerPer != BATTERY_PERCENT_LEVEL_0
-/* Vanzo:zhangqingzhan on: Mon, 10 Oct 2016 11:55:50 +0800
- *level 2 close flash
 			|| gLowPowerVbat != LOW_BATTERY_LEVEL_0)
- */
-			|| gLowPowerVbat == LOW_BATTERY_LEVEL_2)
-// End of Vanzo: zhangqingzhan
 				isLow = 1;
 			logI("FLASH_IOC_IS_LOW_POWER %d %d %d", gLowPowerPer, gLowPowerVbat, isLow);
 			kdArg.arg = isLow;
@@ -676,10 +770,6 @@ static struct device *flashlight_device;
 static struct flashlight_data flashlight_private;
 static dev_t flashlight_devno;
 static struct cdev flashlight_cdev;
-/* Vanzo:yangzhihong on: Mon, 18 Jan 2016 21:18:19 +0800
- */
-extern int flashlight_gpio_init(struct platform_device *pdev);
-// End of Vanzo:yangzhihong
 /* ======================================================================== */
 #define ALLOC_DEVNO
 static int flashlight_probe(struct platform_device *dev)
@@ -735,11 +825,8 @@ static int flashlight_probe(struct platform_device *dev)
 	init_waitqueue_head(&flashlight_private.read_wait);
 	/* init_MUTEX(&flashlight_private.sem); */
 	sema_init(&flashlight_private.sem, 1);
-
-/* Vanzo:yangzhihong on: Mon, 18 Jan 2016 21:04:02 +0800
- */
-    flashlight_gpio_init(dev);
-// End of Vanzo:yangzhihong
+	/* GPIO pinctrl initial */
+	flashlight_gpio_init(dev);
 
 	logI("[flashlight_probe] Done ~");
 	return 0;
@@ -783,15 +870,13 @@ static void flashlight_shutdown(struct platform_device *dev)
 	logI("[flashlight_shutdown] Done ~");
 }
 
-/* Vanzo:yangzhihong on: Tue, 19 Jan 2016 17:29:16 +0800
- */
 #ifdef CONFIG_OF
-static const struct of_device_id flashlight_match_table[] = {
-  { .compatible = "mediatek, gpio_flashlight", },
-  {}
+static const struct of_device_id FLASHLIGHT_of_match[] = {
+	{.compatible = "mediatek,mt6735-flashlight"},
+	{},
 };
 #endif
-// End of Vanzo:yangzhihong
+
 static struct platform_driver flashlight_platform_driver = {
 	.probe = flashlight_probe,
 	.remove = flashlight_remove,
@@ -799,40 +884,31 @@ static struct platform_driver flashlight_platform_driver = {
 	.driver = {
 		   .name = FLASHLIGHT_DEVNAME,
 		   .owner = THIS_MODULE,
-/* Vanzo:yangzhihong on: Tue, 19 Jan 2016 17:29:42 +0800
- */
 #ifdef CONFIG_OF
-           .of_match_table = flashlight_match_table,
+	.of_match_table = FLASHLIGHT_of_match,
 #endif
-// End of Vanzo:yangzhihong
 		   },
 };
-/* Vanzo:zhangqingzhan on: Wed, 07 Dec 2016 14:43:25 +0800
- *use dts
+
 static struct platform_device flashlight_platform_device = {
 	.name = FLASHLIGHT_DEVNAME,
 	.id = 0,
 	.dev = {
 		}
 };
- */
 
-// End of Vanzo: zhangqingzhan
 static int __init flashlight_init(void)
 {
 	int ret = 0;
 
 	logI("[flashlight_probe] start ~");
-/* Vanzo:zhangqingzhan on: Wed, 07 Dec 2016 14:43:45 +0800
- * use dts
+
 	ret = platform_device_register(&flashlight_platform_device);
 	if (ret) {
 		logI("[flashlight_probe] platform_device_register fail ~");
 		return ret;
 	}
- */
 
-// End of Vanzo: zhangqingzhan
 	ret = platform_driver_register(&flashlight_platform_driver);
 	if (ret) {
 		logI("[flashlight_probe] platform_driver_register fail ~");
