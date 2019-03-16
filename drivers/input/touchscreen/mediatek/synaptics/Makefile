@@ -1,11 +1,11 @@
-include $(srctree)/drivers/misc/mediatek/Makefile.custom
-
-
+ccflags-y += -I$(srctree)/drivers/input/touchscreen/synaptics_dsx/
 ccflags-y += -I$(srctree)/drivers/input/touchscreen/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
+ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/
+ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/wdt/
+ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/wdt/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/i2c/$(MTK_PLATFORM)/
 
-#target
-obj-y   +=  synaptics_dsx_fw_update.o
-obj-y   +=  synaptics_dsx_i2c.o
-obj-y   +=  synaptics_dsx_rmi_dev.o
-obj-y   +=  synaptics_dsx_test_reporting.o
+
+obj-y += synaptics_dsx_rmi_dev.o synaptics_dsx_i2c.o synaptics_dsx_fw_update.o
