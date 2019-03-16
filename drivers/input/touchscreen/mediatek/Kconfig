@@ -133,8 +133,19 @@ config TOUCHSCREEN_MTK_FT5X0X
 	  To compile this dirver as a module, choose M here: the
 	  module will be called.
 
-source "drivers/input/touchscreen/mediatek/ft5x0x/Kconfig"
+source "drivers/input/touchscreen/mediatek/ft5x0x_gesture/Kconfig"
 
+config TOUCHSCREEN_MTK_SYNAPTICS_DSX
+	bool "synaptics_dsx for Mediatek package"
+	default n
+	help
+	  Say Y here if you have SYNAPTICS_DSX touch panel.
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/synaptics_dsx/Kconfig"
 
 config TOUCHSCREEN_MTK_FT6336S
 	bool "FT633S for Mediatek package"
