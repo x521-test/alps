@@ -38,6 +38,7 @@ $(info "custom_kernel_touchpanel:$(custom_kernel_touchpanel)")
 obj-y += $(custom_kernel_touchpanel)
 else
 # End of Vanzo:wangfei
+obj-$(CONFIG_TOUCHSCREEN_MTK_SYNAPTICS_DSX)		+= synaptics_dsx
 obj-$(CONFIG_TOUCHSCREEN_MTK_GT910)	+=  GT910/
 obj-$(CONFIG_TOUCHSCREEN_MTK_GT1151)	+=  GT1151/
 obj-$(CONFIG_TOUCHSCREEN_MTK_GT1151TB)	+=  GT1151TB/
