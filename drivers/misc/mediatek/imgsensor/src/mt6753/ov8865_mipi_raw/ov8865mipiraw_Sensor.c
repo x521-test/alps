@@ -40,11 +40,13 @@
 #include <linux/fs.h>
 #include <asm/atomic.h>
 //#include <asm/system.h>
-#include <linux/xlog.h>
+//#include <linux/xlog.h>
+#include "kd_camera_typedef.h"
+
 
 #include "kd_camera_hw.h"
 #include "kd_imgsensor.h"
-#include "kd_imgsensor_define.h" 
+#include "kd_imgsensor_define.h"
 #include "kd_imgsensor_errcode.h"
 
 #include "ov8865mipiraw_Sensor.h"
